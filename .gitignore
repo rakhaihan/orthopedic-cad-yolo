@@ -1,11 +1,29 @@
+# Python cache & environment
 __pycache__/
 *.pyc
+*.pyo
+*.pyd
+*.pdb
+*.egg-info/
+.env
+.venv/
+
+# Model & checkpoint files
 *.pth
 *.pt
-.env
+*.onnx
+
+# Data folders
 data/raw/
 data/processed/
+data/cache/
 experiments/runs/
+
+# IDE & notebook junk
 .vscode/
 .ipynb_checkpoints/
 *.log
+
+# OS-specific
+.DS_Store
+Thumbs.db
