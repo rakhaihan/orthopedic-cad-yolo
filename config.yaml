@@ -1,0 +1,51 @@
+seed: 42
+device: cuda
+data:
+  raw_dir: data/raw
+  images_dir: data/raw/images
+  annotations_dir: data/raw/annotations
+  processed_dir: data/processed
+  processed_images_dir: data/processed/images_640
+  yolo_labels_dir: data/processed/labels_yolo
+  splits_dir: data/splits
+  yolo_data_yaml: data/yolo_dataset.yaml
+  classification_dir: data/processed/classification
+  split_strategy:
+    train: 0.7
+    val: 0.15
+    test: 0.15
+    stratify_columns:
+      - anatomy_region
+      - label
+preprocessing:
+  target_size: [640, 640]
+  clahe_clip_limit: 2.0
+  clahe_tile_grid_size: [8, 8]
+  gaussian_kernel_size: 5
+training:
+  yolo:
+    img_size: 640
+    epochs: 100
+    batch_size: 16
+    lr: 1e-3
+    augmentation:
+      degrees: 15
+      fliplr: 0.5
+      hsv_v: 0.2
+      mosaic: 1.0
+  efficientdet:
+    model_name: tf_efficientdet_d3
+    epochs: 100
+    batch_size: 8
+    lr: 1e-4
+  cls:
+    img_size: 224
+    epochs: 20
+    batch_size: 32
+    lr: 1e-4
+model:
+  yolo_model: yolov8m.pt
+  efficientdet_pretrained: true
+  cls_backbone: resnet50
+logging:
+  wandb: false
