@@ -122,11 +122,20 @@ python -m src.train_detection --config config.yaml
 >   ```bash
 >   python -c "import torch; print(torch.cuda.is_available(), torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'no-gpu')"
 >   ```
+> 
+> ⏸️ **Cara Pause & Resume Training YOLOv8:**
+> - **Pause**: Tekan `Ctrl + C` pada terminal kapan saja. Proses *training* akan berhenti dengan aman dan progres terakhir tersimpan.
+> - **Resume**: Untuk melanjutkan *training* yang terputus, gunakan perintah CLI YOLO berikut (sesuaikan path `last.pt` dengan folder eksperimen terakhir Anda di dalam folder `runs`):
+>   ```bash
+>   yolo train resume model=runs/detect/train/weights/last.pt
+>   ```
 
 **6️⃣ Training EfficientDet-D3**
 ```bash
 python -m src.train_efficientdet --config config.yaml
 ```
+
+> ⚠️ **Catatan EfficientDet:** Skrip *training* EfficientDet saat ini tidak mendukung fitur *resume*. Proses harus dijalankan hingga selesai dalam satu waktu.
 
 **7️⃣ UI Streamlit**
 ```bash
