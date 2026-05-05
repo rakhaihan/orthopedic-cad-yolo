@@ -74,6 +74,21 @@ pip install -r requirements.txt
 
 ---
 
+## 💻 Panduan Training di PC Lain (Clone dari GitHub)
+
+Karena folder data mentah (`data/raw/`), data hasil proses (`data/processed/`), dan file bobot model (`*.pt`) **tidak ikut di-push ke GitHub** (diabaikan oleh `.gitignore`), Anda harus melakukan langkah tambahan berikut jika melakukan *clone* di PC baru:
+
+1. **Pindahkan Dataset Manual**: Salin file dataset asli (FracAtlas/MURA) dari sumber asli atau PC lama Anda.
+   - Letakkan citra X-ray di `data/raw/images/`.
+   - Letakkan file anotasi di `data/raw/annotations/`.
+2. **Jalankan Ulang Preprocessing**: Ikuti **Langkah 1 hingga 4** pada panduan di bawah untuk memproses ulang citra dan membangun struktur dataset YOLO.
+3. **Konfigurasi Hardware**: Buka file `config.yaml`.
+   - Jika PC baru memiliki GPU NVIDIA, pastikan tertulis `device: cuda`.
+   - Jika PC baru tanpa GPU, ubah menjadi `device: cpu` (proses training akan berjalan lambat).
+4. *(Otomatis)* Pustaka YOLO akan men-download file bobot awal (`yolov8m.pt`) secara otomatis dari internet saat skrip *training* pertama kali dijalankan.
+
+---
+
 ## 🏃‍♂️ Cara Jalankan End-to-End (Fase 1-3,5)
 
 **1️⃣ Split stratified**
