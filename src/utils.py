@@ -3,7 +3,7 @@ import json
 import logging
 
 logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger("cad-ortopedi")
+logger = logging.getLogger("orthopedic-cad-yolo")
 
 def load_json(path):
     with open(path, 'r') as f:

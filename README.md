@@ -37,7 +37,7 @@
 
 ## 📁 Struktur Proyek
 ```text
-cad-ortopedi/
+orthopedic-cad-yolo/
 ├── data/             # raw, processed, splits, yolo yaml
 ├── src/              # pipeline AI (train, infer, explainability, UI)
 ├── scripts/          # utilitas data preparation
@@ -59,7 +59,11 @@ python -m venv .venv
 
 **Windows:**
 ```powershell
-.venv\Scripts\activate
+.\.venv\Scripts\Activate.ps1
+```
+Jika muncul error policy:
+```powershell
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 ```
 
 **Linux/macOS:**
@@ -139,16 +143,38 @@ python -m src.train_efficientdet --config config.yaml
 
 **7️⃣ UI Streamlit**
 ```bash
-streamlit run src/app_streamlit.py
+python -m streamlit run src/app_streamlit.py
 ```
+
+**Alternatif Windows (double click):**
+```bat
+run_cad.bat
+```
+Script ini otomatis:
+- masuk ke root project
+- memakai interpreter `.venv\Scripts\python.exe` langsung
+- menjalankan `python -m streamlit run src/app_streamlit.py`
 
 ---
 
 ## 🐳 Docker
 ```bash
-docker build -t cad-ortopedi .
-docker run --rm -p 8501:8501 cad-ortopedi
+docker build -t orthopedic-cad-yolo .
+docker run --rm -p 8501:8501 orthopedic-cad-yolo
 ```
+
+---
+
+## 🛠️ Troubleshooting Singkat
+- Jika folder project dipindah/rename, jalankan Streamlit dengan `python -m streamlit ...` (hindari `streamlit.exe` lama).
+- Jika `.venv` rusak karena path lama:
+  ```powershell
+  deactivate
+  Remove-Item -Recurse -Force .venv
+  python -m venv .venv
+  .\.venv\Scripts\Activate.ps1
+  pip install -r requirements.txt
+  ```
 
 ---
 
