@@ -144,7 +144,7 @@ python -m src.train_efficientdet --config config.yaml
 
 **7️⃣ Training classifier untuk heatmap (Grad-CAM/EigenCAM)**
 ```bash
-python src/train_classification.py --config config.yaml
+python -m src.train_classification --config config.yaml
 ```
 
 Output default:
