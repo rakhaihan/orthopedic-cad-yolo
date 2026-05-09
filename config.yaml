@@ -43,6 +43,7 @@ training:
     epochs: 20
     batch_size: 32
     lr: 1e-4
+    weight_decay: 1e-4
 model:
   yolo_model: yolov8m.pt
   efficientdet_pretrained: true

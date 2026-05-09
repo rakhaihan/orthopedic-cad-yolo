@@ -46,7 +46,11 @@ def train(cfg_path: str) -> None:
     val_loader = DataLoader(val_ds, batch_size=c["batch_size"], shuffle=False, num_workers=0)
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=float(c["lr"]))
+    optimizer = optim.Adam(
+        model.parameters(),
+        lr=float(c["lr"]),
+        weight_decay=float(c.get("weight_decay", 1e-4)),
+    )
 
     for epoch in range(c["epochs"]):
         model.train()
