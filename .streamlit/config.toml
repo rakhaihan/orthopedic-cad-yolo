@@ -1,0 +1,6 @@
+[server]
+# Hindari disconnect karena file terlalu besar saat upload
+maxUploadSize = 50
+
+# Windows kadang memicu rerun beruntun (watcher) -> koneksi putus
+fileWatcherType = "poll"

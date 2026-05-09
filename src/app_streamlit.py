@@ -19,6 +19,9 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
+MAX_UPLOAD_MB = 50
+MAX_IMAGE_SIDE = 2048
+
 
 @st.cache_resource
 def load_models(yolo_path: str, cls_path: str | None):
@@ -81,6 +84,23 @@ def blend_cam(rgb_image: np.ndarray, cam_mask: np.ndarray, alpha: float = 0.45) 
     return blended
 
 
+def _decode_upload_to_rgb(image_bytes: bytes) -> np.ndarray:
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if bgr is None:
+        raise ValueError("OpenCV gagal membaca gambar (format tidak dikenali atau file corrupt).")
+
+    h, w = bgr.shape[:2]
+    longest = max(h, w)
+    if longest > MAX_IMAGE_SIDE:
+        scale = MAX_IMAGE_SIDE / float(longest)
+        new_w = max(1, int(w * scale))
+        new_h = max(1, int(h * scale))
+        bgr = cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
+
+    return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
+
+
 def main():
     render_style()
     st.markdown('<div class="main-title">🩻 CAD Ortopedi Dashboard</div>', unsafe_allow_html=True)
@@ -100,21 +120,44 @@ def main():
 
         st.caption("Tip: gunakan threshold lebih rendah jika bbox tidak muncul.")
 
-    uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"])
+    uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"], key="xray_upload")
     if not uploaded:
         st.info("Silakan upload citra terlebih dahulu untuk memulai analisis.")
         return
+
+    if getattr(uploaded, "size", None) is not None and uploaded.size > (MAX_UPLOAD_MB * 1024 * 1024):
+        st.error(f"Ukuran file terlalu besar ({uploaded.size / (1024 * 1024):.1f} MB). Maks {MAX_UPLOAD_MB} MB.")
+        return
+
+    upload_signature = (uploaded.name, getattr(uploaded, "size", None))
+    cached_signature = st.session_state.get("upload_signature")
+    if cached_signature != upload_signature:
+        with st.spinner("Mengunggah & memproses gambar..."):
+            try:
+                image_bytes = uploaded.getvalue()
+                rgb = _decode_upload_to_rgb(image_bytes)
+            except Exception as exc:
+                st.error("Gagal memproses file upload. Coba gambar lain.")
+                st.exception(exc)
+                return
+            st.session_state["upload_signature"] = upload_signature
+            st.session_state["uploaded_bytes"] = image_bytes
+            st.session_state["uploaded_rgb"] = rgb
+
+    rgb = st.session_state.get("uploaded_rgb")
+    if rgb is None:
+        st.error("Upload tidak terbaca. Silakan upload ulang.")
+        return
+
+    st.image(rgb, caption=f"Preview: {uploaded.name}", use_container_width=True)
     if not run_btn:
         st.warning("Klik **Jalankan Analisis** untuk memproses citra.")
         return
 
-    image_bytes = uploaded.read()
-    nparr = np.frombuffer(image_bytes, np.uint8)
-    bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-    if bgr is None:
-        st.error("Gagal membaca gambar. Coba upload file JPG/PNG lain (file ini mungkin corrupt).")
+    image_bytes = st.session_state.get("uploaded_bytes")
+    if not image_bytes:
+        st.error("Gagal membaca bytes upload. Silakan upload ulang.")
         return
-    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
     with st.spinner("Memuat model dan menjalankan inferensi..."):
         yolo_path_obj = Path(yolo_path)
