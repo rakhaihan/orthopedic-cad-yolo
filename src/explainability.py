@@ -7,7 +7,12 @@ from typing import Literal
 def cam_for_model(model, input_tensor, target_layer, method: Literal["gradcam", "eigencam"] = "gradcam"):
     """Generate CAM mask with Grad-CAM or EigenCAM."""
     cam_cls = GradCAM if method == "gradcam" else EigenCAM
-    cam = cam_cls(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
+    # pytorch-grad-cam API differs across versions:
+    # older releases accept `use_cuda`, newer releases infer device from model/input.
+    try:
+        cam = cam_cls(model=model, target_layers=[target_layer], use_cuda=torch.cuda.is_available())
+    except TypeError:
+        cam = cam_cls(model=model, target_layers=[target_layer])
     grayscale_cam = cam(input_tensor=input_tensor, targets=None)[0]
     return grayscale_cam
 
