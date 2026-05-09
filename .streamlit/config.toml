@@ -4,3 +4,13 @@ maxUploadSize = 50
 
 # Windows kadang memicu rerun beruntun (watcher) -> koneksi putus
 fileWatcherType = "poll"
+
+# Paksa bind lokal agar tidak berpindah ke interface lain
+address = "127.0.0.1"
+port = 8501
+headless = true
+
+# Keep-alive websocket supaya tidak cepat di-drop proxy/firewall
+websocketPingInterval = 20
+disconnectedSessionTTL = 300
+enableWebsocketCompression = false

@@ -24,7 +24,7 @@ MAX_IMAGE_SIDE = 2048
 
 
 @st.cache_resource
-def load_models(yolo_path: str, cls_path: str | None):
+def load_models(yolo_path: str | None, cls_path: str | None):
     yolo = YOLOWrapper(model_path=yolo_path)
     classifier = None
     if cls_path and Path(cls_path).exists():
@@ -32,6 +32,13 @@ def load_models(yolo_path: str, cls_path: str | None):
         classifier.load_state_dict(torch.load(cls_path, map_location="cpu"))
         classifier.eval()
     return yolo, classifier
+
+
+def _discover_default_yolo_path() -> str:
+    candidates = sorted(Path(".").glob("runs/**/weights/best.pt"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if candidates:
+        return str(candidates[0])
+    return ""
 
 
 def predict_summary(has_box: bool) -> str:
@@ -84,6 +91,61 @@ def blend_cam(rgb_image: np.ndarray, cam_mask: np.ndarray, alpha: float = 0.45) 
     return blended
 
 
+def _make_detection_heatmap(result, shape_hw: tuple[int, int]) -> np.ndarray:
+    h, w = shape_hw
+    heat = np.zeros((h, w), dtype=np.float32)
+    boxes = result.boxes
+    if boxes is None or len(boxes) == 0:
+        return heat
+
+    xyxy = boxes.xyxy.detach().cpu().numpy()
+    confs = boxes.conf.detach().cpu().numpy()
+    for box, conf in zip(xyxy, confs):
+        x1, y1, x2, y2 = box.astype(int)
+        x1 = max(0, min(w - 1, x1))
+        x2 = max(0, min(w, x2))
+        y1 = max(0, min(h - 1, y1))
+        y2 = max(0, min(h, y2))
+        if x2 <= x1 or y2 <= y1:
+            continue
+        heat[y1:y2, x1:x2] = np.maximum(heat[y1:y2, x1:x2], float(conf))
+
+    max_val = float(np.max(heat))
+    if max_val > 0:
+        heat = heat / max_val
+    return heat
+
+
+def _plot_detection_overlay(result, rgb_image: np.ndarray) -> np.ndarray:
+    plotted = rgb_image.copy()
+    boxes = result.boxes
+    if boxes is None or len(boxes) == 0:
+        return plotted
+
+    xyxy = boxes.xyxy.detach().cpu().numpy()
+    confs = boxes.conf.detach().cpu().numpy()
+    cls_ids = boxes.cls.detach().cpu().numpy().astype(int)
+
+    for box, conf, cls_id in zip(xyxy, confs, cls_ids):
+        x1, y1, x2, y2 = box.astype(int)
+        _ = cls_id  # class index intentionally ignored to avoid misleading class labels
+        label = f"Detected Region {conf:.2f}"
+
+        cv2.rectangle(plotted, (x1, y1), (x2, y2), (56, 189, 248), 2)
+        text_pos = (x1, max(18, y1 - 8))
+        cv2.putText(
+            plotted,
+            label,
+            text_pos,
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.45,  # smaller text to avoid covering X-ray details
+            (56, 189, 248),
+            1,
+            cv2.LINE_AA,
+        )
+    return plotted
+
+
 def _decode_upload_to_rgb(image_bytes: bytes) -> np.ndarray:
     nparr = np.frombuffer(image_bytes, np.uint8)
     bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -111,13 +173,22 @@ def main():
 
     with st.sidebar:
         st.header("Pengaturan")
-        yolo_path = st.text_input("Path model YOLO", "runs/detect/train/weights/best.pt")
+        default_yolo_path = _discover_default_yolo_path()
+        yolo_path = st.text_input(
+            "Path model YOLO",
+            default_yolo_path if default_yolo_path else "",
+            help="Kosongkan untuk fallback ke model default Ultralytics (yolov8m.pt).",
+        )
         cls_path = st.text_input("Path model klasifikasi (opsional)", "runs/classification_resnet50.pt")
         conf = st.slider("Confidence threshold", 0.05, 0.95, 0.25, 0.05)
         cam_method = st.selectbox("Metode heatmap", ["gradcam", "eigencam"])
         cam_alpha = st.slider("Intensitas heatmap", 0.10, 0.90, 0.45, 0.05)
         run_btn = st.button("Jalankan Analisis", type="primary", use_container_width=True)
 
+        if default_yolo_path:
+            st.caption(f"Model YOLO otomatis terdeteksi: `{default_yolo_path}`")
+        else:
+            st.caption("Belum ada `runs/**/weights/best.pt`. App akan fallback ke `yolov8m.pt`.")
         st.caption("Tip: gunakan threshold lebih rendah jika bbox tidak muncul.")
 
     uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"], key="xray_upload")
@@ -160,10 +231,15 @@ def main():
         return
 
     with st.spinner("Memuat model dan menjalankan inferensi..."):
-        yolo_path_obj = Path(yolo_path)
-        if not yolo_path_obj.exists():
-            st.error(f"Model YOLO tidak ditemukan di path: `{yolo_path}`")
-            st.stop()
+        yolo_model_path: str | None = None
+        if yolo_path.strip():
+            yolo_path_obj = Path(yolo_path)
+            if not yolo_path_obj.exists():
+                st.error(f"Model YOLO tidak ditemukan di path: `{yolo_path}`")
+                st.stop()
+            yolo_model_path = str(yolo_path_obj)
+        else:
+            st.info("Path YOLO kosong: menggunakan model default `yolov8m.pt`.")
 
         cls_path_obj = Path(cls_path) if cls_path else None
         if cls_path and not cls_path_obj.exists():
@@ -171,7 +247,7 @@ def main():
             cls_path = None
 
         try:
-            yolo, classifier = load_models(str(yolo_path_obj), str(cls_path_obj) if cls_path_obj else None)
+            yolo, classifier = load_models(yolo_model_path, str(cls_path_obj) if cls_path_obj else None)
         except Exception as exc:
             st.error("Gagal memuat model. Periksa path model dan dependency (ultralytics/timm/torch).")
             st.exception(exc)
@@ -191,8 +267,7 @@ def main():
         st.stop()
 
     result = results[0]
-    plotted = result.plot()
-    plotted_rgb = cv2.cvtColor(plotted, cv2.COLOR_BGR2RGB)
+    plotted_rgb = _plot_detection_overlay(result, rgb)
     det_count, max_conf, mean_conf = get_detection_stats(result)
     has_box = det_count > 0
 
@@ -222,7 +297,12 @@ def main():
 
     with tab3:
         if classifier is None:
-            st.info("Model klasifikasi belum tersedia, heatmap tidak ditampilkan.")
+            det_cam_mask = _make_detection_heatmap(result, rgb.shape[:2])
+            det_heatmap = blend_cam(rgb, det_cam_mask, alpha=cam_alpha)
+            st.info("Model klasifikasi belum tersedia. Menampilkan heatmap fallback dari confidence area deteksi.")
+            hc1, hc2 = st.columns(2)
+            hc1.image(rgb, caption="Input", use_container_width=True)
+            hc2.image(det_heatmap, caption="Heatmap fallback (deteksi)", use_container_width=True)
         else:
             tensor = cv2.resize(rgb, (224, 224)).astype(np.float32) / 255.0
             tensor = torch.from_numpy(tensor).permute(2, 0, 1).unsqueeze(0)
