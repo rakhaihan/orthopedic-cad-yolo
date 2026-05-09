@@ -1,6 +1,7 @@
 """EfficientDet-D3 training entrypoint (transfer learning)."""
 
 import argparse
+from pathlib import Path
 import yaml
 import torch
 import torch.nn as nn
@@ -16,9 +17,18 @@ def train(cfg_path: str) -> None:
         cfg = yaml.safe_load(f)
 
     tcfg = cfg["training"]["efficientdet"]
+    img_size = cfg["training"]["cls"]["img_size"]
     data_dir = cfg["data"]["classification_dir"]
-    train_ds = XrayClassificationDataset(f"{data_dir}/train", img_size=640)
-    val_ds = XrayClassificationDataset(f"{data_dir}/val", img_size=640)
+    splits_dir = Path(cfg["data"]["splits_dir"])
+    train_split = splits_dir / "train.txt"
+    val_split = splits_dir / "val.txt"
+
+    if train_split.exists() and val_split.exists():
+        train_ds = XrayClassificationDataset(str(train_split), img_size=img_size)
+        val_ds = XrayClassificationDataset(str(val_split), img_size=img_size)
+    else:
+        train_ds = XrayClassificationDataset(f"{data_dir}/train", img_size=img_size)
+        val_ds = XrayClassificationDataset(f"{data_dir}/val", img_size=img_size)
 
     train_loader = DataLoader(train_ds, batch_size=tcfg["batch_size"], shuffle=True, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=tcfg["batch_size"], shuffle=False, num_workers=0)

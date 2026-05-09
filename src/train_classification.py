@@ -1,6 +1,7 @@
 import yaml
 import argparse
 import os
+from pathlib import Path
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
@@ -16,8 +17,15 @@ def train(cfg_path: str) -> None:
     model = ResNetClassifier(backbone=cfg["model"]["cls_backbone"], num_classes=2)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
-    train_root = f'{cfg["data"]["classification_dir"]}/train'
-    val_root = f'{cfg["data"]["classification_dir"]}/val'
+    splits_dir = Path(cfg["data"]["splits_dir"])
+    train_split = splits_dir / "train.txt"
+    val_split = splits_dir / "val.txt"
+    if train_split.exists() and val_split.exists():
+        train_root = str(train_split)
+        val_root = str(val_split)
+    else:
+        train_root = f'{cfg["data"]["classification_dir"]}/train'
+        val_root = f'{cfg["data"]["classification_dir"]}/val'
 
     train_ds = XrayClassificationDataset(train_root, img_size=c["img_size"])
     val_ds = XrayClassificationDataset(val_root, img_size=c["img_size"])

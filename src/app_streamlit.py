@@ -111,10 +111,28 @@ def main():
     image_bytes = uploaded.read()
     nparr = np.frombuffer(image_bytes, np.uint8)
     bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if bgr is None:
+        st.error("Gagal membaca gambar. Coba upload file JPG/PNG lain (file ini mungkin corrupt).")
+        return
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
     with st.spinner("Memuat model dan menjalankan inferensi..."):
-        yolo, classifier = load_models(yolo_path, cls_path)
+        yolo_path_obj = Path(yolo_path)
+        if not yolo_path_obj.exists():
+            st.error(f"Model YOLO tidak ditemukan di path: `{yolo_path}`")
+            st.stop()
+
+        cls_path_obj = Path(cls_path) if cls_path else None
+        if cls_path and not cls_path_obj.exists():
+            st.warning(f"Model klasifikasi tidak ditemukan di path: `{cls_path}`. Heatmap akan dinonaktifkan.")
+            cls_path = None
+
+        try:
+            yolo, classifier = load_models(str(yolo_path_obj), str(cls_path_obj) if cls_path_obj else None)
+        except Exception as exc:
+            st.error("Gagal memuat model. Periksa path model dan dependency (ultralytics/timm/torch).")
+            st.exception(exc)
+            st.stop()
         with tempfile.NamedTemporaryFile(suffix=".jpg", delete=False) as tmp:
             tmp.write(image_bytes)
             temp_path = tmp.name
@@ -124,6 +142,10 @@ def main():
         finally:
             if os.path.exists(temp_path):
                 os.remove(temp_path)
+
+    if not results:
+        st.error("Inferensi gagal: tidak ada output dari model YOLO.")
+        st.stop()
 
     result = results[0]
     plotted = result.plot()

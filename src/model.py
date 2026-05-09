@@ -43,10 +43,28 @@ class YOLOWrapper:
 
 
 class EfficientDetWrapper:
-    """Detector wrapper using timm EfficientDet variants."""
+    """Binary classifier wrapper using timm backbones.
+
+    Note: some timm builds do not ship EfficientDet model entries. We keep this
+    wrapper name for backward compatibility with existing training scripts.
+    """
 
     def __init__(self, model_name: str = "tf_efficientdet_d3", pretrained: bool = True):
-        self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=2)
+        fallback_model = "tf_efficientnet_b3"
+        try:
+            self.model = timm.create_model(model_name, pretrained=pretrained, num_classes=2)
+        except RuntimeError as exc:
+            available = timm.list_models("*efficient*")
+            if model_name == fallback_model or fallback_model not in available:
+                raise RuntimeError(
+                    f"Unknown model '{model_name}' and no compatible fallback found in timm."
+                ) from exc
+
+            print(
+                f"[WARN] timm model '{model_name}' is unavailable; "
+                f"falling back to '{fallback_model}'."
+            )
+            self.model = timm.create_model(fallback_model, pretrained=pretrained, num_classes=2)
 
     def to(self, device: torch.device) -> "EfficientDetWrapper":
         self.model.to(device)

@@ -34,7 +34,7 @@ training:
       hsv_v: 0.2
       mosaic: 1.0
   efficientdet:
-    model_name: tf_efficientdet_d3
+    model_name: tf_efficientnet_b3
     epochs: 100
     batch_size: 8
     lr: 1e-4
