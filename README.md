@@ -17,6 +17,7 @@
 ### 🧠 Fase 2 - Arsitektur Sistem
 - **Detector 1**: YOLOv8-m (`src/train_detection.py`).
 - **Backbone 2**: EfficientDet-D3 transfer learning (`src/train_efficientdet.py`).
+- **Classifier untuk XAI**: ResNet50 binary classifier (`src/train_classification.py`) untuk heatmap Grad-CAM/EigenCAM.
 - **Komponen modular**: loader (`src/dataset.py`), preprocessor (`src/preprocessing.py`), detector (`src/model.py`), visualizer/XAI (`src/explainability.py`), evaluator (`src/evaluate.py`).
 
 ### 💻 Fase 3 - Antarmuka & Explainability
@@ -141,7 +142,17 @@ python -m src.train_efficientdet --config config.yaml
 
 > ⚠️ **Catatan EfficientDet:** Skrip *training* EfficientDet saat ini tidak mendukung fitur *resume*. Proses harus dijalankan hingga selesai dalam satu waktu.
 
-**7️⃣ UI Streamlit**
+**7️⃣ Training classifier untuk heatmap (Grad-CAM/EigenCAM)**
+```bash
+python src/train_classification.py --config config.yaml
+```
+
+Output default:
+- `runs/classification_resnet50.pt`
+
+> ℹ️ **Catatan heatmap:** Jika file classifier belum ada, aplikasi Streamlit tetap menampilkan heatmap fallback dari area deteksi (bukan Grad-CAM classifier).
+
+**8️⃣ UI Streamlit**
 ```bash
 python -m streamlit run src/app_streamlit.py
 ```
