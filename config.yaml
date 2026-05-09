@@ -40,10 +40,15 @@ training:
     lr: 1e-4
   cls:
     img_size: 224
-    epochs: 20
+    epochs: 100
     batch_size: 32
     lr: 1e-4
     weight_decay: 1e-4
+    use_class_weights: true
+    lr_reduce_factor: 0.5
+    lr_patience: 3
+    early_stopping_patience: 7
+    min_delta: 1e-4
 model:
   yolo_model: yolov8m.pt
   efficientdet_pretrained: true
