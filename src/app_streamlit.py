@@ -41,6 +41,22 @@ def _discover_default_yolo_path() -> str:
     return ""
 
 
+def _discover_default_cls_path() -> str:
+    patterns = [
+        "runs/classification_resnet50.pt",
+        "runs/**/*classification*.pt",
+        "runs/**/*.pt",
+    ]
+    candidates: list[Path] = []
+    for pattern in patterns:
+        candidates.extend(Path(".").glob(pattern))
+    existing = [p for p in candidates if p.is_file()]
+    existing = sorted(set(existing), key=lambda p: p.stat().st_mtime, reverse=True)
+    if existing:
+        return str(existing[0])
+    return ""
+
+
 def predict_summary(has_box: bool) -> str:
     if has_box:
         return "Model mendeteksi area yang berpotensi fraktur. Tinjau bbox dan heatmap sebagai pendukung keputusan klinis."
@@ -174,12 +190,17 @@ def main():
     with st.sidebar:
         st.header("Pengaturan")
         default_yolo_path = _discover_default_yolo_path()
+        default_cls_path = _discover_default_cls_path()
         yolo_path = st.text_input(
             "Path model YOLO",
             default_yolo_path if default_yolo_path else "",
             help="Kosongkan untuk fallback ke model default Ultralytics (yolov8m.pt).",
         )
-        cls_path = st.text_input("Path model klasifikasi (opsional)", "runs/classification_resnet50.pt")
+        cls_path = st.text_input(
+            "Path model klasifikasi (opsional)",
+            default_cls_path if default_cls_path else "",
+            help="Jika kosong/tidak ada, app pakai heatmap fallback dari area deteksi.",
+        )
         conf = st.slider("Confidence threshold", 0.05, 0.95, 0.25, 0.05)
         cam_method = st.selectbox("Metode heatmap", ["gradcam", "eigencam"])
         cam_alpha = st.slider("Intensitas heatmap", 0.10, 0.90, 0.45, 0.05)
@@ -189,6 +210,10 @@ def main():
             st.caption(f"Model YOLO otomatis terdeteksi: `{default_yolo_path}`")
         else:
             st.caption("Belum ada `runs/**/weights/best.pt`. App akan fallback ke `yolov8m.pt`.")
+        if default_cls_path:
+            st.caption(f"Model klasifikasi otomatis terdeteksi: `{default_cls_path}`")
+        else:
+            st.caption("Belum ada model klasifikasi `.pt` di folder `runs`.")
         st.caption("Tip: gunakan threshold lebih rendah jika bbox tidak muncul.")
 
     uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"], key="xray_upload")

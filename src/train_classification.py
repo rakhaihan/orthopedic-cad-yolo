@@ -9,23 +9,36 @@ from src.model import ResNetClassifier
 from src.dataset import XrayClassificationDataset
 import torch.nn as nn
 
+
+PROJECT_ROOT = Path(__file__).resolve().parents[1]
+
+
 def train(cfg_path: str) -> None:
     """Train binary fracture classifier from folder-structured dataset."""
-    with open(cfg_path) as f:
+    cfg_file = Path(cfg_path)
+    if not cfg_file.is_absolute():
+        cfg_file = (PROJECT_ROOT / cfg_file).resolve()
+
+    with cfg_file.open() as f:
         cfg = yaml.safe_load(f)
     c = cfg["training"]["cls"]
     model = ResNetClassifier(backbone=cfg["model"]["cls_backbone"], num_classes=2)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model.to(device)
     splits_dir = Path(cfg["data"]["splits_dir"])
+    if not splits_dir.is_absolute():
+        splits_dir = (PROJECT_ROOT / splits_dir).resolve()
     train_split = splits_dir / "train.txt"
     val_split = splits_dir / "val.txt"
     if train_split.exists() and val_split.exists():
         train_root = str(train_split)
         val_root = str(val_split)
     else:
-        train_root = f'{cfg["data"]["classification_dir"]}/train'
-        val_root = f'{cfg["data"]["classification_dir"]}/val'
+        cls_dir = Path(cfg["data"]["classification_dir"])
+        if not cls_dir.is_absolute():
+            cls_dir = (PROJECT_ROOT / cls_dir).resolve()
+        train_root = str(cls_dir / "train")
+        val_root = str(cls_dir / "val")
 
     train_ds = XrayClassificationDataset(train_root, img_size=c["img_size"])
     val_ds = XrayClassificationDataset(val_root, img_size=c["img_size"])
@@ -60,9 +73,11 @@ def train(cfg_path: str) -> None:
         val_acc = (correct / total) if total else 0.0
         print(f"Epoch {epoch + 1}/{c['epochs']} | train_loss={train_loss:.4f} | val_acc={val_acc:.4f}")
 
-    os.makedirs("runs", exist_ok=True)
-    torch.save(model.state_dict(), "runs/classification_resnet50.pt")
-    print("Saved classifier weights to runs/classification_resnet50.pt")
+    runs_dir = (PROJECT_ROOT / "runs").resolve()
+    os.makedirs(runs_dir, exist_ok=True)
+    output_path = runs_dir / "classification_resnet50.pt"
+    torch.save(model.state_dict(), str(output_path))
+    print(f"Saved classifier weights to {output_path}")
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
