@@ -13,7 +13,7 @@ if not exist ".venv\Scripts\python.exe" (
 )
 
 REM Buka browser beberapa detik setelah server mulai (non-blocking)
-start "" cmd /c "timeout /t 3 /nobreak >nul && start http://localhost:8501"
+start "" cmd /c "timeout /t 3 /nobreak >nul && start http://127.0.0.1:8501
 
 REM Jalankan Streamlit lewat python -m agar tidak tergantung launcher streamlit.exe
 ".venv\Scripts\python.exe" -m streamlit run "src\app_streamlit.py"
