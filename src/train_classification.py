@@ -5,9 +5,15 @@ from pathlib import Path
 import torch
 import torch.optim as optim
 from torch.utils.data import DataLoader
-from src.model import ResNetClassifier
-from src.dataset import XrayClassificationDataset
 import torch.nn as nn
+
+try:
+    from src.model import ResNetClassifier
+    from src.dataset import XrayClassificationDataset
+except ModuleNotFoundError:
+    # Support direct execution: python src/train_classification.py
+    from model import ResNetClassifier
+    from dataset import XrayClassificationDataset
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
