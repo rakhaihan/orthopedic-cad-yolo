@@ -26,7 +26,7 @@ st.set_page_config(
 )
 
 MAX_UPLOAD_MB = 50
-MAX_IMAGE_SIDE = 2048
+DEFAULT_IMAGE_SIDE = 1280
 CLS_IMG_SIZE = 224
 
 
@@ -76,21 +76,98 @@ def resolve_target_layer(classifier: ResNetClassifier):
     return list(classifier.net.children())[-2]
 
 
-def render_style():
+def render_style(theme_mode: str):
+    is_dark = theme_mode == "Dark"
+    palette = {
+        "app_bg": "#0f172a" if is_dark else "#f6f8fb",
+        "panel_bg": "#172033" if is_dark else "#ffffff",
+        "panel_soft": "#1f2a44" if is_dark else "#eef4ff",
+        "text": "#e5edf7" if is_dark else "#172033",
+        "muted": "#a7b4c7" if is_dark else "#526173",
+        "border": "#2b3b58" if is_dark else "#dbe5f0",
+        "accent": "#38bdf8" if is_dark else "#2563eb",
+        "success": "#34d399" if is_dark else "#059669",
+        "warning": "#fbbf24" if is_dark else "#d97706",
+    }
     st.markdown(
-        """
+        f"""
         <style>
+            :root {{
+                --app-bg: {palette["app_bg"]};
+                --panel-bg: {palette["panel_bg"]};
+                --panel-soft: {palette["panel_soft"]};
+                --text-main: {palette["text"]};
+                --text-muted: {palette["muted"]};
+                --border-soft: {palette["border"]};
+                --accent: {palette["accent"]};
+                --success: {palette["success"]};
+                --warning: {palette["warning"]};
+            }}
+            .stApp {{
+                background: var(--app-bg);
+                color: var(--text-main);
+            }}
+            section[data-testid="stSidebar"] {{
+                background: var(--panel-bg);
+                border-right: 1px solid var(--border-soft);
+            }}
+            .block-container {{
+                padding-top: 2rem;
+                padding-bottom: 3rem;
+            }}
             .main-title {
-                font-size: 2.0rem;
+                color: var(--text-main);
+                font-size: 2.25rem;
                 font-weight: 700;
                 margin-bottom: 0.25rem;
             }
             .subtitle {
-                color: #9AA0A6;
+                color: var(--text-muted);
+                margin-bottom: 1.25rem;
+            }
+            .hero-panel {
+                background: var(--panel-bg);
+                border: 1px solid var(--border-soft);
+                border-radius: 8px;
+                padding: 1.2rem 1.35rem;
+                margin-bottom: 1.25rem;
+                box-shadow: 0 14px 36px rgba(15, 23, 42, 0.10);
+            }
+            .upload-shell {
+                background: var(--panel-soft);
+                border: 1px dashed var(--accent);
+                border-radius: 8px;
+                padding: 0.8rem 1rem 0.3rem;
                 margin-bottom: 1rem;
             }
-            .status-ok {color: #19c37d; font-weight: 600;}
-            .status-warn {color: #f59e0b; font-weight: 600;}
+            div[data-testid="stMetric"] {
+                background: var(--panel-bg);
+                border: 1px solid var(--border-soft);
+                border-radius: 8px;
+                padding: 0.85rem 1rem;
+            }
+            .stTabs [data-baseweb="tab-list"] {
+                gap: 0.5rem;
+            }
+            .stTabs [data-baseweb="tab"] {
+                background: var(--panel-bg);
+                border: 1px solid var(--border-soft);
+                border-radius: 8px 8px 0 0;
+                color: var(--text-main);
+            }
+            .stButton > button {
+                min-height: 3rem;
+                border-radius: 8px;
+                font-weight: 700;
+            }
+            .stFileUploader {
+                background: var(--panel-soft);
+                border: 1px dashed var(--accent);
+                border-radius: 8px;
+                padding: 0.75rem 0.9rem 0.15rem;
+            }
+            .status-ok {color: var(--success); font-weight: 600;}
+            .status-warn {color: var(--warning); font-weight: 600;}
         </style>
         """,
         unsafe_allow_html=True,
@@ -170,7 +247,7 @@ def _plot_detection_overlay(result, rgb_image: np.ndarray) -> np.ndarray:
     return plotted
 
 
-def _decode_upload_to_rgb(image_bytes: bytes) -> np.ndarray:
+def _decode_upload_to_rgb(image_bytes: bytes, max_side: int) -> np.ndarray:
     nparr = np.frombuffer(image_bytes, np.uint8)
     bgr = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     if bgr is None:
@@ -178,8 +255,8 @@ def _decode_upload_to_rgb(image_bytes: bytes) -> np.ndarray:
 
     h, w = bgr.shape[:2]
     longest = max(h, w)
-    if longest > MAX_IMAGE_SIDE:
-        scale = MAX_IMAGE_SIDE / float(longest)
+    if longest > max_side:
+        scale = max_side / float(longest)
         new_w = max(1, int(w * scale))
         new_h = max(1, int(h * scale))
         bgr = cv2.resize(bgr, (new_w, new_h), interpolation=cv2.INTER_AREA)
@@ -187,8 +264,12 @@ def _decode_upload_to_rgb(image_bytes: bytes) -> np.ndarray:
     return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
 
 
+def _display_width(rgb_image: np.ndarray, display_scale: int) -> int:
+    width = int(rgb_image.shape[1])
+    return min(1100, max(260, int(width * (display_scale / 100.0))))
+
+
 def main():
-    render_style()
     st.markdown('<div class="main-title">🩻 CAD Ortopedi Dashboard</div>', unsafe_allow_html=True)
     st.markdown(
         '<div class="subtitle">Deteksi fraktur berbasis YOLOv8 + Explainability (Grad-CAM / EigenCAM)</div>',
@@ -197,6 +278,8 @@ def main():
 
     with st.sidebar:
         st.header("Pengaturan")
+        theme_mode = st.radio("Mode tampilan", ("Light", "Dark"), horizontal=True)
+        render_style(theme_mode)
         default_yolo_path = _discover_default_yolo_path()
         default_cls_path = _discover_default_cls_path()
         yolo_path = st.text_input(
@@ -217,14 +300,28 @@ def main():
             help="Grad-CAM++ / LayerCAM sering menghasilkan fokus spatial lebih konsisten daripada Grad-CAM vanilla.",
         )
         cam_alpha = st.slider("Intensitas heatmap", 0.10, 0.90, 0.45, 0.05)
+        image_max_side = st.slider(
+            "Batas dimensi X-Y gambar",
+            512,
+            2048,
+            DEFAULT_IMAGE_SIDE,
+            128,
+            help="Sisi terpanjang gambar upload akan diperkecil ke batas ini sebelum preview dan inferensi.",
+        )
+        display_scale = st.slider(
+            "Skala tampilan gambar",
+            35,
+            100,
+            70,
+            5,
+            help="Mengatur ukuran preview di layar tanpa mengubah file asli.",
+        )
         cam_scope = st.radio(
             "Cakupan heatmap (klasifikasi)",
             ("Seluruh citra", "Ikuti bbox deteksi (disarankan)"),
             index=1,
             help="Seluruh citra: klasifikasi level gambar dapat menekankan area tanpa konteks spatial. Ikuti bbox: CAM dari crop ROI detektor lalu digabung — lebih konsisten dengan region curiga.",
         )
-        run_btn = st.button("Jalankan Analisis", type="primary", use_container_width=True)
-
         if default_yolo_path:
             st.caption(f"Model YOLO otomatis terdeteksi: `{default_yolo_path}`")
         else:
@@ -235,7 +332,15 @@ def main():
             st.caption("Belum ada model klasifikasi `.pt` di folder `runs`.")
         st.caption("Tip: gunakan threshold lebih rendah jika bbox tidak muncul.")
 
-    uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"], key="xray_upload")
+    upload_panel = st.container()
+    with upload_panel:
+        upload_col, action_col = st.columns([4.2, 1.25])
+        with upload_col:
+            uploaded = st.file_uploader("Upload citra X-ray", type=["jpg", "jpeg", "png"], key="xray_upload")
+        with action_col:
+            st.write("")
+            run_btn = st.button("Jalankan Analisis", type="primary", use_container_width=True)
+
     if not uploaded:
         st.info("Silakan upload citra terlebih dahulu untuk memulai analisis.")
         return
@@ -244,13 +349,13 @@ def main():
         st.error(f"Ukuran file terlalu besar ({uploaded.size / (1024 * 1024):.1f} MB). Maks {MAX_UPLOAD_MB} MB.")
         return
 
-    upload_signature = (uploaded.name, getattr(uploaded, "size", None))
+    upload_signature = (uploaded.name, getattr(uploaded, "size", None), image_max_side)
     cached_signature = st.session_state.get("upload_signature")
     if cached_signature != upload_signature:
         with st.spinner("Mengunggah & memproses gambar..."):
             try:
                 image_bytes = uploaded.getvalue()
-                rgb = _decode_upload_to_rgb(image_bytes)
+                rgb = _decode_upload_to_rgb(image_bytes, image_max_side)
             except Exception as exc:
                 st.error("Gagal memproses file upload. Coba gambar lain.")
                 st.exception(exc)
@@ -264,7 +369,9 @@ def main():
         st.error("Upload tidak terbaca. Silakan upload ulang.")
         return
 
-    st.image(rgb, caption=f"Preview: {uploaded.name}", use_container_width=True)
+    with upload_panel:
+        st.caption(f"Dimensi aktif: {rgb.shape[1]} x {rgb.shape[0]} px")
+        st.image(rgb, caption=f"Preview: {uploaded.name}", width=_display_width(rgb, display_scale))
     if not run_btn:
         st.warning("Klik **Jalankan Analisis** untuk memproses citra.")
         return
