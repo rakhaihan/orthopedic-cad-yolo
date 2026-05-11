@@ -115,59 +115,59 @@ def render_style(theme_mode: str):
                 padding-top: 2rem;
                 padding-bottom: 3rem;
             }}
-            .main-title {
+            .main-title {{
                 color: var(--text-main);
                 font-size: 2.25rem;
                 font-weight: 700;
                 margin-bottom: 0.25rem;
-            }
-            .subtitle {
+            }}
+            .subtitle {{
                 color: var(--text-muted);
                 margin-bottom: 1.25rem;
-            }
-            .hero-panel {
+            }}
+            .hero-panel {{
                 background: var(--panel-bg);
                 border: 1px solid var(--border-soft);
                 border-radius: 8px;
                 padding: 1.2rem 1.35rem;
                 margin-bottom: 1.25rem;
                 box-shadow: 0 14px 36px rgba(15, 23, 42, 0.10);
-            }
-            .upload-shell {
+            }}
+            .upload-shell {{
                 background: var(--panel-soft);
                 border: 1px dashed var(--accent);
                 border-radius: 8px;
                 padding: 0.8rem 1rem 0.3rem;
                 margin-bottom: 1rem;
-            }
-            div[data-testid="stMetric"] {
+            }}
+            div[data-testid="stMetric"] {{
                 background: var(--panel-bg);
                 border: 1px solid var(--border-soft);
                 border-radius: 8px;
                 padding: 0.85rem 1rem;
-            }
-            .stTabs [data-baseweb="tab-list"] {
+            }}
+            .stTabs [data-baseweb="tab-list"] {{
                 gap: 0.5rem;
-            }
-            .stTabs [data-baseweb="tab"] {
+            }}
+            .stTabs [data-baseweb="tab"] {{
                 background: var(--panel-bg);
                 border: 1px solid var(--border-soft);
                 border-radius: 8px 8px 0 0;
                 color: var(--text-main);
-            }
-            .stButton > button {
+            }}
+            .stButton > button {{
                 min-height: 3rem;
                 border-radius: 8px;
                 font-weight: 700;
-            }
-            .stFileUploader {
+            }}
+            .stFileUploader {{
                 background: var(--panel-soft);
                 border: 1px dashed var(--accent);
                 border-radius: 8px;
                 padding: 0.75rem 0.9rem 0.15rem;
-            }
-            .status-ok {color: var(--success); font-weight: 600;}
-            .status-warn {color: var(--warning); font-weight: 600;}
+            }}
+            .status-ok {{color: var(--success); font-weight: 600;}}
+            .status-warn {{color: var(--warning); font-weight: 600;}}
         </style>
         """,
         unsafe_allow_html=True,
