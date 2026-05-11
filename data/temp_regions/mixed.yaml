@@ -1,0 +1,7 @@
+names:
+  0: non_fractured
+  1: fractured
+path: data/yolo
+test: D:\proyek\AI\orthopedic-cad-yolo\data\temp_regions\test_mixed.txt
+train: images/train
+val: images/val
