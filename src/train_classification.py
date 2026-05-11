@@ -12,10 +12,12 @@ import albumentations as A
 try:
     from src.model import ResNetClassifier
     from src.dataset import XrayClassificationDataset
+    from src.classification_labels import LABEL_MAP_FILENAME, save_label_map
 except ModuleNotFoundError:
     # Support direct execution: python src/train_classification.py
     from model import ResNetClassifier
     from dataset import XrayClassificationDataset
+    from classification_labels import LABEL_MAP_FILENAME, save_label_map
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
@@ -96,6 +98,10 @@ def train(cfg_path: str) -> None:
 
     train_ds = XrayClassificationDataset(train_root, img_size=c["img_size"], transforms=train_tfms)
     val_ds = XrayClassificationDataset(val_root, img_size=c["img_size"], transforms=val_tfms)
+    runs_meta = (PROJECT_ROOT / "runs").resolve()
+    runs_meta.mkdir(parents=True, exist_ok=True)
+    save_label_map(runs_meta / LABEL_MAP_FILENAME, train_ds.class_to_idx)
+
     train_loader = DataLoader(train_ds, batch_size=c["batch_size"], shuffle=True, num_workers=0)
     val_loader = DataLoader(val_ds, batch_size=c["batch_size"], shuffle=False, num_workers=0)
 
@@ -156,6 +162,7 @@ def train(cfg_path: str) -> None:
             os.makedirs(runs_dir, exist_ok=True)
             best_path = runs_dir / "classification_resnet50.pt"
             torch.save(model.state_dict(), str(best_path))
+            save_label_map(runs_meta / LABEL_MAP_FILENAME, train_ds.class_to_idx)
             print(f"[BEST] Saved checkpoint to {best_path}")
         else:
             no_improve += 1

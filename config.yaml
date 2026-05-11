@@ -27,6 +27,8 @@ training:
     img_size: 640
     epochs: 100
     batch_size: 16
+    min_img_size: 416
+    min_batch_size: 2
     lr: 1e-3
     augmentation:
       degrees: 15

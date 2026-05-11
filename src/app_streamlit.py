@@ -1,15 +1,21 @@
 """Interactive CAD fracture demo UI using Streamlit."""
 
-from pathlib import Path
+from __future__ import annotations
+
+import copy
 import tempfile
 import os
+from pathlib import Path
+
 import cv2
 import numpy as np
 import streamlit as st
 import torch
 
 from model import YOLOWrapper, ResNetClassifier
-from explainability import cam_for_model
+from explainability import bbox_guided_classifier_cam, cam_for_model
+from classifier_preprocess import preprocess_rgb_tensor
+from classification_labels import LABEL_MAP_FILENAME, load_label_map
 
 
 st.set_page_config(
@@ -21,6 +27,7 @@ st.set_page_config(
 
 MAX_UPLOAD_MB = 50
 MAX_IMAGE_SIDE = 2048
+CLS_IMG_SIZE = 224
 
 
 @st.cache_resource
@@ -202,8 +209,19 @@ def main():
             help="Jika kosong/tidak ada, app pakai heatmap fallback dari area deteksi.",
         )
         conf = st.slider("Confidence threshold", 0.05, 0.95, 0.25, 0.05)
-        cam_method = st.selectbox("Metode heatmap", ["gradcam", "eigencam"])
+        cam_method = st.selectbox(
+            "Metode heatmap klasifikasi",
+            ["gradcam++", "gradcam", "eigencam", "layercam"],
+            index=0,
+            help="Grad-CAM++ / LayerCAM sering menghasilkan fokus spatial lebih konsisten daripada Grad-CAM vanilla.",
+        )
         cam_alpha = st.slider("Intensitas heatmap", 0.10, 0.90, 0.45, 0.05)
+        cam_scope = st.radio(
+            "Cakupan heatmap (klasifikasi)",
+            ("Seluruh citra", "Ikuti bbox deteksi (disarankan)"),
+            index=1,
+            help="Seluruh citra: klasifikasi level gambar dapat menekankan area tanpa konteks spatial. Ikuti bbox: CAM dari crop ROI detektor lalu digabung — lebih konsisten dengan region curiga.",
+        )
         run_btn = st.button("Jalankan Analisis", type="primary", use_container_width=True)
 
         if default_yolo_path:
@@ -267,9 +285,10 @@ def main():
             st.info("Path YOLO kosong: menggunakan model default `yolov8m.pt`.")
 
         cls_path_obj = Path(cls_path) if cls_path else None
-        if cls_path and not cls_path_obj.exists():
+        if cls_path and cls_path_obj and not cls_path_obj.exists():
             st.warning(f"Model klasifikasi tidak ditemukan di path: `{cls_path}`. Heatmap akan dinonaktifkan.")
             cls_path = None
+            cls_path_obj = None
 
         try:
             yolo, classifier = load_models(yolo_model_path, str(cls_path_obj) if cls_path_obj else None)
@@ -329,14 +348,93 @@ def main():
             hc1.image(rgb, caption="Input", use_container_width=True)
             hc2.image(det_heatmap, caption="Heatmap fallback (deteksi)", use_container_width=True)
         else:
-            tensor = cv2.resize(rgb, (224, 224)).astype(np.float32) / 255.0
-            tensor = torch.from_numpy(tensor).permute(2, 0, 1).unsqueeze(0)
-            target_layer = resolve_target_layer(classifier)
-            cam_mask = cam_for_model(classifier, tensor, target_layer, method=cam_method)
-            heatmap = blend_cam(rgb, cam_mask, alpha=cam_alpha)
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            clf_infer = classifier
+            if device.type == "cuda":
+                clf_infer = copy.deepcopy(classifier).to(device).eval()
+            else:
+                clf_infer = classifier.cpu().eval()
+
+            label_yaml = Path(cls_path_obj).expanduser().resolve().parent / LABEL_MAP_FILENAME if cls_path_obj else None
+            loaded_labels = load_label_map(label_yaml) if label_yaml else None
+            if loaded_labels:
+                class_to_idx, fracture_idx = loaded_labels
+                st.caption(
+                    "Pemetaan kelas (dari pelatihan): "
+                    + ", ".join(f"{k}→{class_to_idx[k]}" for k in sorted(class_to_idx, key=lambda x: class_to_idx[x]))
+                )
+                st.caption(f"CAM diarahkan ke logit kelas fraktur: indeks `{fracture_idx}`.")
+            else:
+                fracture_idx = 0
+                st.warning(
+                    f"Tidak ditemukan `{LABEL_MAP_FILENAME}` di folder model. CAM memakai indeks kelas default `0`. "
+                    "Jalankan ulang pelatihan klasifikasi agar pemetaan label tersimpan otomatis."
+                )
+
+            try:
+                from pytorch_grad_cam.utils.model_targets import ClassifierOutputTarget
+
+                targets = [ClassifierOutputTarget(fracture_idx)]
+            except Exception:
+                targets = None
+                st.warning("Tidak dapat membuat target CAM eksplisit; heatmap menggunakan kelas dengan skor logits tertinggi.")
+
+            rgb_u8 = np.clip(rgb.astype(np.uint8), 0, 255)
+
+            tensor_g = preprocess_rgb_tensor(rgb_u8, CLS_IMG_SIZE, device=device)
+            with torch.no_grad():
+                probs = torch.softmax(clf_infer(tensor_g)[0], dim=0).detach().cpu().numpy()
+
+            cols_p = st.columns(len(probs))
+            for i, p in enumerate(probs):
+                cols_p[i].metric(f"logit-{i}", f"{float(p)*100:.1f}%")
+
+            target_layer = resolve_target_layer(clf_infer)
+
+            cam_mask: np.ndarray | None = None
+            bbox_guided_ok = False
+            if cam_scope.startswith("Ikuti bbox") and has_box:
+                guided = bbox_guided_classifier_cam(
+                    clf_infer,
+                    rgb_u8,
+                    result,
+                    target_layer,
+                    preprocess_rgb_tensor,
+                    img_size=CLS_IMG_SIZE,
+                    device=device,
+                    method=cam_method,
+                    fracture_class_idx=fracture_idx,
+                )
+                if guided is not None:
+                    cam_mask = guided.astype(np.float32)
+                    bbox_guided_ok = True
+
+            if cam_mask is None:
+                cam_mask = cam_for_model(
+                    clf_infer,
+                    tensor_g,
+                    target_layer,
+                    method=cam_method,
+                    targets=targets,
+                )
+
+            heatmap = blend_cam(rgb_u8.astype(np.float32), cam_mask.astype(np.float32), alpha=cam_alpha)
             hc1, hc2 = st.columns(2)
-            hc1.image(rgb, caption="Input", use_container_width=True)
-            hc2.image(heatmap, caption=f"Heatmap {cam_method}", use_container_width=True)
+            hc1.image(rgb_u8, caption="Input", use_container_width=True)
+            cap = cam_method.upper()
+            if cam_scope.startswith("Ikuti bbox") and bbox_guided_ok:
+                cap += " (guided bbox)"
+            elif cam_scope.startswith("Ikuti bbox") and has_box and not bbox_guided_ok:
+                cap += " (fallback penuh — CAM crop gagal)"
+            elif cam_scope.startswith("Ikuti bbox") and not has_box:
+                cap += " (penuh — tiada bbox)"
+            hc2.image(heatmap.astype(np.uint8), caption=f"Heatmap klasifikasi: {cap}", use_container_width=True)
+
+            with st.expander("Catatan klinis / interpretasi"):
+                st.markdown(
+                    "Heatmap klasifikasi menunjukkan **kontributor spasial bagi skor kelas tertentu** "
+                    "(bukan lokasi anatomis diagnosis). Kombinasikan dengan bbox deteksi dan validasi ahli radiologi."
+                )
 
 
 if __name__ == "__main__":
