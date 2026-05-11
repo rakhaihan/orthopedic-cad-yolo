@@ -86,6 +86,7 @@ def render_style(theme_mode: str):
         "muted": "#a7b4c7" if is_dark else "#526173",
         "border": "#2b3b58" if is_dark else "#dbe5f0",
         "accent": "#38bdf8" if is_dark else "#2563eb",
+        "accent_text": "#07111f" if is_dark else "#ffffff",
         "success": "#34d399" if is_dark else "#059669",
         "warning": "#fbbf24" if is_dark else "#d97706",
     }
@@ -100,6 +101,7 @@ def render_style(theme_mode: str):
                 --text-muted: {palette["muted"]};
                 --border-soft: {palette["border"]};
                 --accent: {palette["accent"]};
+                --accent-text: {palette["accent_text"]};
                 --success: {palette["success"]};
                 --warning: {palette["warning"]};
             }}
@@ -107,12 +109,21 @@ def render_style(theme_mode: str):
                 background: var(--app-bg);
                 color: var(--text-main);
             }}
+            .stApp, .stApp p, .stApp label, .stApp span, .stApp div {{
+                color: var(--text-main);
+            }}
+            [data-testid="stHeader"] {{
+                background: var(--app-bg);
+            }}
             section[data-testid="stSidebar"] {{
                 background: var(--panel-bg);
                 border-right: 1px solid var(--border-soft);
             }}
+            section[data-testid="stSidebar"] * {{
+                color: var(--text-main);
+            }}
             .block-container {{
-                padding-top: 2rem;
+                padding-top: 5.5rem;
                 padding-bottom: 3rem;
             }}
             .main-title {{
@@ -146,25 +157,76 @@ def render_style(theme_mode: str):
                 border-radius: 8px;
                 padding: 0.85rem 1rem;
             }}
+            div[data-testid="stMetric"] label,
+            div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
+                color: var(--text-main);
+            }}
             .stTabs [data-baseweb="tab-list"] {{
-                gap: 0.5rem;
+                gap: 0.7rem;
+                border-bottom: 1px solid var(--border-soft);
+                padding-bottom: 0;
+                overflow-x: auto;
             }}
             .stTabs [data-baseweb="tab"] {{
                 background: var(--panel-bg);
                 border: 1px solid var(--border-soft);
+                border-bottom: 0;
                 border-radius: 8px 8px 0 0;
                 color: var(--text-main);
+                cursor: pointer;
+                font-size: 1rem;
+                font-weight: 700;
+                min-height: 3.1rem;
+                min-width: 10.5rem;
+                padding: 0.75rem 1.25rem;
+                white-space: nowrap;
+                box-shadow: 0 -1px 0 rgba(15, 23, 42, 0.04) inset;
+            }}
+            .stTabs [data-baseweb="tab"] p {{
+                color: var(--text-main);
+                font-size: 1rem;
+                line-height: 1.2;
+                margin: 0;
+                white-space: nowrap;
+            }}
+            .stTabs [data-baseweb="tab"]:hover {{
+                border-color: var(--accent);
+                background: var(--panel-soft);
+            }}
+            .stTabs [aria-selected="true"] {{
+                background: var(--accent);
+                border-color: var(--accent);
+            }}
+            .stTabs [aria-selected="true"] *,
+            .stTabs [aria-selected="true"] p {{
+                color: var(--accent-text);
             }}
             .stButton > button {{
                 min-height: 3rem;
                 border-radius: 8px;
                 font-weight: 700;
             }}
+            .stButton > button[kind="primary"],
+            .stButton > button[kind="primary"] * {{
+                color: var(--accent-text);
+            }}
             .stFileUploader {{
                 background: var(--panel-soft);
                 border: 1px dashed var(--accent);
                 border-radius: 8px;
                 padding: 0.75rem 0.9rem 0.15rem;
+            }}
+            .stFileUploader label,
+            .stFileUploader small,
+            .stFileUploader span,
+            .stSlider label,
+            .stRadio label,
+            .stSelectbox label,
+            .stTextInput label {{
+                color: var(--text-main);
+            }}
+            input, textarea, [data-baseweb="select"] {{
+                color: var(--text-main);
             }}
             .status-ok {{color: var(--success); font-weight: 600;}}
             .status-warn {{color: var(--warning); font-weight: 600;}}
