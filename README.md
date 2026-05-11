@@ -149,10 +149,8 @@ python -m src.train_classification --config config.yaml
 
 Output default:
 - `runs/classification_resnet50.pt`
-- `runs/classification_label_map.yaml` (**pemetaan kelas + indeks target CAM**) agar Grad-CAM di UI mengarah pada logit *fraktur* yang sama dengan struktur foldernya (`fractured` / `non_fractured`).
 
-> ℹ️ **Catatan heatmap:** Jika file classifier belum ada, aplikasi Streamlit tetap menampilkan heatmap fallback dari area deteksi (bukan Grad-CAM classifier).  
-> Inference mengikuti **normalisasi yang sama seperti training** (ImageNet normalize); gunakan juga mode **Ikuti bbox** di sidebar jika klasifikasi penuh citra bikin lokasi aktivasi membingungkan.
+> ℹ️ **Catatan heatmap:** Jika file classifier belum ada, aplikasi Streamlit tetap menampilkan heatmap fallback dari area deteksi (bukan Grad-CAM classifier).
 
 **8️⃣ UI Streamlit**
 ```bash
