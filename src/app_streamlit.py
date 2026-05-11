@@ -106,11 +106,12 @@ def get_detection_stats(result):
 
 
 def blend_cam(rgb_image: np.ndarray, cam_mask: np.ndarray, alpha: float = 0.45) -> np.ndarray:
+    rgb_u8 = np.uint8(np.clip(rgb_image, 0, 255))
     mask = np.uint8(np.clip(cam_mask, 0.0, 1.0) * 255.0)
-    mask = cv2.resize(mask, (rgb_image.shape[1], rgb_image.shape[0]), interpolation=cv2.INTER_LINEAR)
+    mask = cv2.resize(mask, (rgb_u8.shape[1], rgb_u8.shape[0]), interpolation=cv2.INTER_LINEAR)
     color_map = cv2.applyColorMap(mask, cv2.COLORMAP_JET)
     color_map = cv2.cvtColor(color_map, cv2.COLOR_BGR2RGB)
-    blended = cv2.addWeighted(rgb_image, 1 - alpha, color_map, alpha, 0)
+    blended = cv2.addWeighted(rgb_u8, 1 - alpha, color_map, alpha, 0)
     return blended
 
 
@@ -418,7 +419,7 @@ def main():
                     targets=targets,
                 )
 
-            heatmap = blend_cam(rgb_u8.astype(np.float32), cam_mask.astype(np.float32), alpha=cam_alpha)
+            heatmap = blend_cam(rgb_u8, cam_mask.astype(np.float32), alpha=cam_alpha)
             hc1, hc2 = st.columns(2)
             hc1.image(rgb_u8, caption="Input", use_container_width=True)
             cap = cam_method.upper()
