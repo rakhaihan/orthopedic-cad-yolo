@@ -1,0 +1,4 @@
+cam_fracture_class_index: 0
+class_to_idx:
+  Fractured: 0
+  Non_fractured: 1
